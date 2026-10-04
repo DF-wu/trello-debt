@@ -6,7 +6,7 @@ import { TrelloApi } from './js/trello.js';
 import { processQueue, runExclusive, makeId } from './js/queue.js';
 import { SYNC_TAG, LOCK_NAME } from './js/config.js';
 
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const CACHE = `trello-debt-${VERSION}`;
 const SHELL = [
   './',

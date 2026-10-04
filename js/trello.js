@@ -132,7 +132,7 @@ export class TrelloApi {
 
   listCards(listId) {
     return this.request('GET', `/lists/${listId}/cards`, {
-      query: { fields: 'id,name,desc,shortUrl,pos', pluginData: 'true' },
+      query: { fields: 'id,name,desc,shortUrl,pos,badges', pluginData: 'true' },
     });
   }
 

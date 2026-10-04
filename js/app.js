@@ -14,7 +14,19 @@ import { kv, IdbQueueStore, inbox, idbAvailable } from './db.js';
 import { TrelloApi, authorizeUrl } from './trello.js';
 import { createEntry, processQueue, runExclusive, STATUS, MemoryQueueStore, makeId } from './queue.js';
 import { compressImage, isImage } from './images.js';
-import { formatAmount, parseAmount, splitKeywords, summarizeList, isSummaryCard, buildSummaryDesc } from './rules.js';
+import {
+  formatAmount,
+  parseAmount,
+  splitKeywords,
+  summarizeList,
+  isSummaryCard,
+  buildSummaryDesc,
+  buildExportRows,
+  toCsv,
+  buildTextReport,
+  safeFilename,
+  isoDate,
+} from './rules.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) =>
@@ -190,9 +202,13 @@ function bindEvents() {
   $('#btnTotal').addEventListener('click', computeTotal);
   $('#totalList').addEventListener('change', () => {
     $('#totalOut').hidden = true;
-    $('#btnWriteSummary').hidden = true;
+    $('#totalActions').hidden = true;
+    lastTotal = null;
   });
   $('#btnWriteSummary').addEventListener('click', writeSummary);
+  $('#btnExportCsv').addEventListener('click', () => exportCsv('download'));
+  $('#btnShareCsv').addEventListener('click', () => exportCsv('share'));
+  $('#btnCopyText').addEventListener('click', copyTextReport);
   $('#queueList').addEventListener('click', onQueueAction);
   $('#btnSettings').addEventListener('click', openSettings);
   $('#btnOpenSetup').addEventListener('click', openSettings);
@@ -559,12 +575,82 @@ async function computeTotal() {
           : ''
       }`;
     out.hidden = false;
+    $('#totalActions').hidden = false;
     $('#btnWriteSummary').hidden = !cards.some(isSummaryCard);
+    $('#btnShareCsv').hidden = !canShareFiles();
   } catch (err) {
     toast(err?.message || String(err), true);
   } finally {
     btn.disabled = false;
     btn.textContent = '計算';
+  }
+}
+
+function currentListName() {
+  const sel = $('#totalList');
+  return sel.options[sel.selectedIndex]?.textContent || '清單';
+}
+
+function canShareFiles() {
+  try {
+    return !!navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.csv', { type: 'text/csv' })] });
+  } catch {
+    return false;
+  }
+}
+
+function buildCsvFile() {
+  const { cards, summary } = lastTotal;
+  const listName = currentListName();
+  const rows = buildExportRows(summary, cards);
+  const csv = toCsv(rows, summary, listName);
+  const name = `${safeFilename(listName)}_${isoDate(new Date())}.csv`;
+  return new File([csv], name, { type: 'text/csv;charset=utf-8' });
+}
+
+// 一鍵結帳：整個清單 → CSV（Excel 直接開），手機上可改用分享存到檔案 / 傳 LINE
+async function exportCsv(mode) {
+  if (!lastTotal) return;
+  const file = buildCsvFile();
+  if (mode === 'share' && canShareFiles()) {
+    try {
+      await navigator.share({ files: [file], title: file.name });
+      return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      /* 分享失敗就退回下載 */
+    }
+  }
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = file.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  toast(`已下載 ${file.name}`);
+}
+
+async function copyTextReport() {
+  if (!lastTotal) return;
+  const { cards, summary } = lastTotal;
+  const rows = buildExportRows(summary, cards);
+  const text = buildTextReport(rows, summary, currentListName(), isoDate(new Date()));
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('已複製，貼到 LINE 就行');
+  } catch {
+    // 沒有剪貼簿權限時改用分享或顯示
+    if (navigator.share) {
+      try {
+        await navigator.share({ text, title: currentListName() });
+        return;
+      } catch {
+        /* ignore */
+      }
+    }
+    prompt('複製下面的文字：', text);
   }
 }
 

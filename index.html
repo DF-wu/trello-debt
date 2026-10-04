@@ -62,7 +62,12 @@
       </div>
       <select id="totalList"></select>
       <div id="totalOut" class="total-out" hidden></div>
-      <button type="button" class="btn" id="btnWriteSummary" hidden>把總計寫進這個清單的 Summary 卡</button>
+      <div id="totalActions" class="total-actions" hidden>
+        <button type="button" class="btn primary" id="btnExportCsv">⬇ 下載結帳清單 (CSV / Excel)</button>
+        <button type="button" class="btn" id="btnShareCsv" hidden>分享 / 存到檔案</button>
+        <button type="button" class="btn" id="btnCopyText">複製文字版（貼 LINE）</button>
+        <button type="button" class="btn" id="btnWriteSummary" hidden>把總計寫進 Summary 卡</button>
+      </div>
     </section>
 
     <section class="card" id="queueSection">

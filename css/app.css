@@ -492,6 +492,11 @@ input.amount {
   font-variant-numeric: tabular-nums;
 }
 
+.total-actions {
+  display: grid;
+  gap: 8px;
+}
+
 .total-out ul {
   margin: 0;
   padding-left: 18px;

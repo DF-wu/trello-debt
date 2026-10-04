@@ -139,6 +139,82 @@ export function summarizeList(cards, opts = {}) {
   return { total: Math.round(total * 100) / 100, count: items.length, items, unparsed };
 }
 
+// Trello id 前 8 個 hex 是建立時間（unix 秒）
+export function creationDateFromId(id) {
+  const sec = parseInt(String(id ?? '').slice(0, 8), 16);
+  return Number.isFinite(sec) && sec > 0 ? new Date(sec * 1000) : null;
+}
+
+export function isoDate(d) {
+  if (!d) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// 結帳清單：依建卡時間排序，附上日期、來源、連結、附件數、說明摘要。
+export function buildExportRows(summary, cards = []) {
+  const byId = new Map((cards || []).map((c) => [c.id, c]));
+  const rows = summary.items
+    .map((it) => {
+      const card = byId.get(it.id) || {};
+      const created = creationDateFromId(it.id);
+      const desc = String(card.desc ?? '')
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, '') // 去掉內嵌圖片
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 200);
+      return {
+        date: isoDate(created),
+        ts: created ? created.getTime() : 0,
+        name: it.name,
+        amount: it.amount,
+        source: it.source === 'smartfield' ? 'Smart Fields' : '說明',
+        attachments: card.badges?.attachments ?? 0,
+        url: it.shortUrl || '',
+        desc,
+      };
+    })
+    .sort((a, b) => a.ts - b.ts);
+  return rows;
+}
+
+function csvCell(v) {
+  const s = v == null ? '' : String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// UTF-8 BOM + CRLF：Excel 直接雙擊開啟中文不會亂碼
+export function toCsv(rows, summary, listName) {
+  const head = ['日期', '項目', '金額', '金額來源', '附件數', '卡片連結', '說明'];
+  const lines = [head.map(csvCell).join(',')];
+  for (const r of rows) {
+    lines.push([r.date, r.name, r.amount, r.source, r.attachments, r.url, r.desc].map(csvCell).join(','));
+  }
+  lines.push('');
+  lines.push(['總計', listName, summary.total, `${summary.count} 筆`].map(csvCell).join(','));
+  for (const u of summary.unparsed || []) {
+    lines.push(['讀不到金額', u.name, '', '', '', u.shortUrl || ''].map(csvCell).join(','));
+  }
+  return '﻿' + lines.join('\r\n') + '\r\n';
+}
+
+// 純文字版：貼到 LINE / 訊息用
+export function buildTextReport(rows, summary, listName, date) {
+  const out = [`${listName}（${date}）`, `共 ${summary.count} 筆，總計 $${formatAmount(summary.total)}`, ''];
+  for (const r of rows) out.push(`${r.date ? r.date.slice(5) + ' ' : ''}${r.name}　$${formatAmount(r.amount)}`);
+  if (summary.unparsed?.length) {
+    out.push('', `讀不到金額（未計入）：${summary.unparsed.map((u) => u.name).join('、')}`);
+  }
+  return out.join('\n');
+}
+
+export function safeFilename(s) {
+  return String(s ?? '')
+    .replace(/[\\/:*?"<>|\s]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 60) || 'export';
+}
+
 const AUTO_LINE = /^總計 .*自動計算）\s*$/m;
 
 // 把總計寫在 Summary 卡說明的第一行；之前自動寫的那行會被換掉，使用者自己寫的內容保留。
