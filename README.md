@@ -9,7 +9,8 @@
 
 - **一頁完成**：標題 → 金額（數字鍵盤）→ 選分類（可不選）→ 拍照 / 相簿多選 → 「記一筆」。
 - **分類規則**：每個分類對應看板上的一個清單，可附加標籤；標題或內容含關鍵字時自動歸類；都沒命中就用預設分類。
-- **卡片格式可調**：標題 / 說明用 `{title} {amount} {content} {date} {time} {category}` 變數組合；金額可另外寫進 Custom Fields 的數字欄位。
+- **卡片格式可調**：標題 / 說明用 `{title} {rawAmount} {amount} {content} {date} {time} {category}` 變數組合（預設：說明第一行是純數字金額）；有付費 Custom Fields 的看板也可把金額寫進數字欄位。
+- **清單總計**：免費方案沒有 Custom Fields、Smart Fields 又不開放外部寫入，所以 app 自己算：讀每張卡的 Smart Fields 值（pluginData）或說明第一行的數字 / 算式，加總後可一鍵寫進該清單的 `[Summary]` 卡。
 - **照片自動縮圖**：長邊縮到 1600px 轉 JPEG，上傳快，也避開 Trello 免費方案 10MB 附件上限。
 - **離線佇列 + 背景同步**：每一步（建卡 → 自訂欄位 → 每張附件）都記進度；中斷後從斷掉那步接著做。Chrome / Android 另外支援 Background Sync，關掉 app 也會補送。
 - **系統分享**：安裝成 PWA 後（Android Chrome），在相簿選照片「分享」到「記帳」就直接帶進表單。
