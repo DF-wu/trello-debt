@@ -1,0 +1,14 @@
+{
+  "name": "trello-debt",
+  "version": "1.0.0",
+  "private": true,
+  "description": "快速記帳 PWA：幾秒鐘記一筆帳，背景自動寫進 Trello 看板",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "serve": "npx -y serve -l 8080 ."
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

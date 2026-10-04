@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="記帳" />
+  <title>快速記帳 → Trello</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>快速記帳</h1>
+    <div class="topbar-right">
+      <span id="syncStatus" class="status"></span>
+      <button id="btnInstall" class="icon-btn" aria-label="安裝到主畫面" title="安裝到主畫面" hidden>⤓</button>
+      <button id="btnSettings" class="icon-btn" aria-label="設定" title="設定">⚙</button>
+    </div>
+  </header>
+  <div id="offlineBanner" class="offline-banner" hidden>目前離線：記下的帳會先存在手機裡，連上網後自動送出</div>
+
+  <main id="main">
+    <div id="setupHint" class="card hint" hidden>
+      <strong>還沒設定完成</strong>
+      <p class="muted" id="setupHintText"></p>
+      <button type="button" class="btn primary" id="btnOpenSetup">前往設定</button>
+    </div>
+
+    <form id="entryForm" class="card" autocomplete="off" novalidate>
+      <label>標題
+        <input id="fTitle" name="title" placeholder="例如：午餐 便當" enterkeyhint="next" autocapitalize="off" />
+      </label>
+      <label>金額
+        <input id="fAmount" name="amount" class="amount" inputmode="decimal" placeholder="0" enterkeyhint="done" />
+      </label>
+      <div class="chips" id="categoryChips" aria-label="分類"></div>
+      <label>內容（選填）
+        <textarea id="fContent" name="content" rows="2" placeholder="備註、明細、跟誰吃的…"></textarea>
+      </label>
+      <div class="photos">
+        <div id="thumbs" class="thumbs"></div>
+        <div class="photo-actions">
+          <button type="button" class="btn" id="btnCamera">📷 拍照</button>
+          <button type="button" class="btn" id="btnGallery">🖼 相簿 / 檔案</button>
+        </div>
+        <input type="file" id="fileCamera" accept="image/*" capture="environment" hidden />
+        <input type="file" id="fileGallery" accept="image/*,application/pdf" multiple hidden />
+      </div>
+      <button type="submit" class="btn primary big" id="btnSubmit">記一筆</button>
+    </form>
+
+    <section class="card" id="queueSection">
+      <div class="section-head">
+        <h2>紀錄</h2>
+        <button type="button" id="btnSync" class="link-btn">立即同步</button>
+      </div>
+      <ul id="queueList" class="queue"></ul>
+    </section>
+  </main>
+
+  <div id="settingsView" class="overlay" hidden>
+    <div class="overlay-head">
+      <button type="button" id="btnCloseSettings" class="icon-btn" aria-label="關閉">✕</button>
+      <h2>設定</h2>
+      <button type="button" id="btnSaveSettings" class="btn primary small">儲存</button>
+    </div>
+    <div class="overlay-body">
+      <section class="card">
+        <h3>1. 連結 Trello</h3>
+        <label>API Key
+          <input id="sApiKey" autocapitalize="off" autocomplete="off" spellcheck="false" />
+        </label>
+        <label>Token
+          <input id="sToken" type="password" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="按下方「透過 Trello 授權」會自動填入" />
+        </label>
+        <div class="row">
+          <button type="button" class="btn" id="btnAuthorize">透過 Trello 授權</button>
+          <button type="button" class="btn" id="btnTestAuth">測試連線</button>
+        </div>
+        <p class="muted" id="authStatus"></p>
+        <details>
+          <summary>授權頁顯示錯誤？改用手動方式</summary>
+          <p class="muted">
+            Trello 的自動回跳需要在 Power-Up 設定的「Allowed origins」加入這個網站的網址。
+            不想設定的話，可以<a id="manualAuthLink" href="#" target="_blank" rel="noopener">在新分頁開啟授權頁</a>，
+            同意後把頁面顯示的 token 貼到上方 Token 欄位。
+          </p>
+        </details>
+      </section>
+
+      <section class="card">
+        <h3>2. 看板</h3>
+        <div class="row">
+          <select id="sBoard"><option value="">（尚未載入）</option></select>
+          <button type="button" class="btn" id="btnLoadBoards">載入看板</button>
+        </div>
+        <p class="muted" id="boardStatus"></p>
+      </section>
+
+      <section class="card">
+        <h3>3. 分類規則</h3>
+        <p class="muted">每個分類對應看板上的一個清單，可加標籤與關鍵字（標題或內容含關鍵字時自動歸類）。</p>
+        <div id="catEditor"></div>
+        <div class="row">
+          <button type="button" class="btn" id="btnAddCat">＋ 新增分類</button>
+          <button type="button" class="btn" id="btnCatsFromLists">依看板清單自動建立</button>
+        </div>
+        <label>預設分類（沒選分類也沒命中關鍵字時）
+          <select id="sDefaultCat"></select>
+        </label>
+      </section>
+
+      <section class="card">
+        <h3>4. 卡片格式</h3>
+        <label>卡片標題
+          <input id="sTitleTpl" autocapitalize="off" />
+        </label>
+        <label>卡片說明
+          <textarea id="sDescTpl" rows="3"></textarea>
+        </label>
+        <p class="muted">可用變數：{title} {amount} {content} {date} {time} {category}</p>
+        <label>金額另外寫入自訂欄位（需看板啟用 Custom Fields）
+          <select id="sAmountField"></select>
+        </label>
+        <label>新卡片放在
+          <select id="sPosition">
+            <option value="top">清單最上方</option>
+            <option value="bottom">清單最下方</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="card">
+        <h3>5. 照片</h3>
+        <label>最長邊縮到（px）
+          <input id="sMaxEdge" type="number" inputmode="numeric" min="480" max="4096" step="10" />
+        </label>
+        <label>JPEG 品質（0.3 ~ 1）
+          <input id="sQuality" type="number" inputmode="decimal" min="0.3" max="1" step="0.05" />
+        </label>
+      </section>
+
+      <section class="card">
+        <h3>資料</h3>
+        <button type="button" class="btn danger" id="btnClearDone">清除已完成的紀錄</button>
+        <p class="muted" id="versionInfo"></p>
+      </section>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

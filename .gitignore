@@ -1,0 +1,6 @@
+# 含 Trello token 的私人筆記，不要進 repo
+df_instructions_note.md
+
+node_modules/
+.DS_Store
+*.log
