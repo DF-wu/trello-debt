@@ -15,6 +15,12 @@
 - **系統分享**：安裝成 PWA 後（Android Chrome），在相簿選照片「分享」到「記帳」就直接帶進表單。
 - 深色模式、可加到主畫面、繁中介面。
 
+## 線上版
+
+**https://df-wu.github.io/trello-debt/** （GitHub Pages，push 到 `main` 後約一分鐘自動更新）
+
+手機開這個網址 → 瀏覽器選單「加入主畫面」就是一個 app。
+
 ## 部署（免費）
 
 這是純靜態網站，任何靜態主機都行。最簡單：**GitHub Pages**。
