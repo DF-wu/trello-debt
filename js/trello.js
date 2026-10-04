@@ -130,6 +130,16 @@ export class TrelloApi {
     }
   }
 
+  listCards(listId) {
+    return this.request('GET', `/lists/${listId}/cards`, {
+      query: { fields: 'id,name,desc,shortUrl,pos', pluginData: 'true' },
+    });
+  }
+
+  updateCard(cardId, fields) {
+    return this.request('PUT', `/cards/${cardId}`, { json: fields });
+  }
+
   createCard({ idList, name, desc, pos, idLabels }) {
     return this.request('POST', '/cards', {
       json: {

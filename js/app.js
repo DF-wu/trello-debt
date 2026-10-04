@@ -14,7 +14,7 @@ import { kv, IdbQueueStore, inbox, idbAvailable } from './db.js';
 import { TrelloApi, authorizeUrl } from './trello.js';
 import { createEntry, processQueue, runExclusive, STATUS, MemoryQueueStore, makeId } from './queue.js';
 import { compressImage, isImage } from './images.js';
-import { formatAmount, parseAmount, splitKeywords } from './rules.js';
+import { formatAmount, parseAmount, splitKeywords, summarizeList, isSummaryCard, buildSummaryDesc } from './rules.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) =>
@@ -112,6 +112,7 @@ async function init() {
 
   renderChips();
   renderSetupHint();
+  renderTotalSection();
   await refreshQueueUI();
 
   if (!state.settings.token) {
@@ -186,6 +187,12 @@ function bindEvents() {
   });
 
   $('#btnSync').addEventListener('click', () => syncNow(true));
+  $('#btnTotal').addEventListener('click', computeTotal);
+  $('#totalList').addEventListener('change', () => {
+    $('#totalOut').hidden = true;
+    $('#btnWriteSummary').hidden = true;
+  });
+  $('#btnWriteSummary').addEventListener('click', writeSummary);
   $('#queueList').addEventListener('click', onQueueAction);
   $('#btnSettings').addEventListener('click', openSettings);
   $('#btnOpenSetup').addEventListener('click', openSettings);
@@ -513,6 +520,75 @@ function renderSyncStatus() {
   el.textContent = text;
 }
 
+// ---------------------------------------------------------------- 清單總計（免費方案沒有 Custom Fields，用這個取代 Smart Fields 的加總）
+let lastTotal = null; // { listId, cards, summary }
+
+function renderTotalSection() {
+  const lists = state.boardMeta?.boardId === state.settings.boardId ? state.boardMeta?.lists || [] : [];
+  const sec = $('#totalSection');
+  sec.hidden = !state.settings.token || !lists.length;
+  if (sec.hidden) return;
+  const sel = $('#totalList');
+  const defaultCat = state.settings.categories.find((c) => c.id === state.settings.defaultCategoryId);
+  const current = sel.value || defaultCat?.listId || lists[0].id;
+  sel.innerHTML = lists
+    .map((l) => `<option value="${esc(l.id)}"${l.id === current ? ' selected' : ''}>${esc(l.name)}</option>`)
+    .join('');
+}
+
+async function computeTotal() {
+  const listId = $('#totalList').value;
+  if (!listId) return;
+  const btn = $('#btnTotal');
+  btn.disabled = true;
+  btn.textContent = '計算中…';
+  try {
+    const cards = await apiFrom(state.settings).listCards(listId);
+    const summary = summarizeList(cards);
+    lastTotal = { listId, cards, summary };
+    const sources = summary.items.filter((i) => i.source === 'smartfield').length;
+    const out = $('#totalOut');
+    out.innerHTML = `
+      <div class="total-big">$${esc(formatAmount(summary.total))}</div>
+      <div class="muted">${summary.count} 筆${sources ? `（${sources} 筆讀自 Smart Fields，其餘讀自說明第一行）` : '（讀自說明第一行）'}</div>
+      ${
+        summary.unparsed.length
+          ? `<div class="muted err">${summary.unparsed.length} 張卡讀不到金額，沒算進去：</div><ul>${summary.unparsed
+              .map((u) => `<li><a href="${esc(u.shortUrl)}" target="_blank" rel="noopener">${esc(u.name)}</a></li>`)
+              .join('')}</ul>`
+          : ''
+      }`;
+    out.hidden = false;
+    $('#btnWriteSummary').hidden = !cards.some(isSummaryCard);
+  } catch (err) {
+    toast(err?.message || String(err), true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '計算';
+  }
+}
+
+async function writeSummary() {
+  if (!lastTotal) return;
+  const summaryCard = lastTotal.cards.find(isSummaryCard);
+  if (!summaryCard) return toast('這個清單沒有 Summary 卡', true);
+  const btn = $('#btnWriteSummary');
+  btn.disabled = true;
+  try {
+    const { total, count } = lastTotal.summary;
+    const d = new Date();
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const desc = buildSummaryDesc(summaryCard.desc, { total, count, date });
+    await apiFrom(state.settings).updateCard(summaryCard.id, { desc });
+    summaryCard.desc = desc;
+    toast(`已寫入「${summaryCard.name}」`);
+  } catch (err) {
+    toast(err?.message || String(err), true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // ---------------------------------------------------------------- service worker
 async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
@@ -601,6 +677,7 @@ async function saveDraft() {
   closeSettings();
   renderChips();
   renderSetupHint();
+  renderTotalSection();
   toast('設定已儲存');
   syncNow(true);
 }

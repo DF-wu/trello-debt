@@ -480,6 +480,25 @@ input.amount {
   text-decoration: none;
 }
 
+/* ---- list total ---- */
+.total-out {
+  display: grid;
+  gap: 6px;
+}
+
+.total-big {
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.total-out ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 /* ---- settings overlay ---- */
 .overlay {
   position: fixed;
