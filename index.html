@@ -137,13 +137,19 @@
       </section>
 
       <section class="card">
-        <h3>5. 照片</h3>
-        <label>最長邊縮到（px）
-          <input id="sMaxEdge" type="number" inputmode="numeric" min="480" max="4096" step="10" />
+        <h3>5. 附件</h3>
+        <label>附件大小上限（MB；Trello 免費 workspace 10、付費 250）
+          <input id="sMaxMB" type="number" inputmode="numeric" min="1" max="250" step="1" />
         </label>
-        <label>JPEG 品質（0.3 ~ 1）
-          <input id="sQuality" type="number" inputmode="decimal" min="0.3" max="1" step="0.05" />
-        </label>
+        <label class="check"><input id="sCompress" type="checkbox" /> 上傳前先縮圖（預設關閉，照片原檔上傳）</label>
+        <div id="compressOpts" class="sub-opts" hidden>
+          <label>最長邊縮到（px）
+            <input id="sMaxEdge" type="number" inputmode="numeric" min="480" max="4096" step="10" />
+          </label>
+          <label>JPEG 品質（0.3 ~ 1）
+            <input id="sQuality" type="number" inputmode="decimal" min="0.3" max="1" step="0.05" />
+          </label>
+        </div>
       </section>
 
       <section class="card">

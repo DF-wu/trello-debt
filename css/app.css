@@ -176,6 +176,27 @@ textarea {
   min-height: 48px;
 }
 
+label.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  color: var(--text);
+}
+
+label.check input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
+
+.sub-opts {
+  display: grid;
+  gap: 10px;
+  padding-left: 12px;
+  border-left: 3px solid var(--border);
+}
+
 input.amount {
   font-size: 28px;
   font-weight: 650;

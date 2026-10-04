@@ -25,6 +25,10 @@ export const DEFAULT_SETTINGS = Object.freeze({
   // 金額要寫入的 Trello 自訂欄位（number 型），空字串 = 不寫入
   amountFieldId: '',
   position: 'top',
+  // 預設不壓縮，照片原檔上傳；只有超過 maxAttachmentMB 才擋下來
+  compressImages: false,
   imageMaxEdge: 1600,
   imageQuality: 0.82,
+  // Trello 附件上限：免費 workspace 10MB，付費 250MB
+  maxAttachmentMB: 10,
 });

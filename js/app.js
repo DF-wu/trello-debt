@@ -4,7 +4,7 @@ import { APP_NAME, DEFAULT_SETTINGS, BOARD_NAME_HINT, SYNC_TAG, LOCK_NAME } from
 import { kv, IdbQueueStore, inbox, idbAvailable } from './db.js';
 import { TrelloApi, authorizeUrl } from './trello.js';
 import { createEntry, processQueue, runExclusive, STATUS, MemoryQueueStore, makeId } from './queue.js';
-import { compressImage, MAX_ATTACHMENT_BYTES, isImage } from './images.js';
+import { compressImage, isImage } from './images.js';
 import { formatAmount, parseAmount, splitKeywords } from './rules.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -55,8 +55,10 @@ function normalizeSettings(raw) {
         keywords: splitKeywords(c.keywords),
       }))
     : [];
+  s.compressImages = s.compressImages === true || s.compressImages === 'true';
   s.imageMaxEdge = clampNum(s.imageMaxEdge, 480, 4096, DEFAULT_SETTINGS.imageMaxEdge);
   s.imageQuality = clampNum(s.imageQuality, 0.3, 1, DEFAULT_SETTINGS.imageQuality);
+  s.maxAttachmentMB = clampNum(s.maxAttachmentMB, 1, 250, DEFAULT_SETTINGS.maxAttachmentMB);
   s.position = s.position === 'bottom' ? 'bottom' : 'top';
   return s;
 }
@@ -207,6 +209,7 @@ function bindEvents() {
     renderDefaultCatSelect();
   });
   $('#btnCatsFromLists').addEventListener('click', catsFromLists);
+  $('#sCompress').addEventListener('change', (e) => ($('#compressOpts').hidden = !e.target.checked));
   $('#sDefaultCat').addEventListener('change', (e) => (state.draft.defaultCategoryId = e.target.value));
   $('#btnClearDone').addEventListener('click', async () => {
     await store.deleteWhere((e) => e.status === STATUS.DONE);
@@ -335,16 +338,19 @@ async function onSubmit(e) {
   }
 
   state.busy = true;
-  setSubmitBusy(true, state.pendingFiles.length ? '處理照片…' : '儲存中…');
+  const { compressImages, imageMaxEdge, imageQuality, maxAttachmentMB } = state.settings;
+  setSubmitBusy(true, state.pendingFiles.length && compressImages ? '處理照片…' : '儲存中…');
   try {
     const files = [];
+    const limit = maxAttachmentMB * 1048576;
     for (const p of state.pendingFiles) {
-      const r = await compressImage(p.file, {
-        maxEdge: state.settings.imageMaxEdge,
-        quality: state.settings.imageQuality,
-      });
-      if (r.blob.size > MAX_ATTACHMENT_BYTES) {
-        throw new Error(`${p.file.name} 有 ${(r.blob.size / 1048576).toFixed(1)}MB，超過 Trello 附件上限 10MB`);
+      const r = compressImages
+        ? await compressImage(p.file, { maxEdge: imageMaxEdge, quality: imageQuality })
+        : { blob: p.file, name: p.file.name };
+      if (r.blob.size > limit) {
+        throw new Error(
+          `${p.file.name} 有 ${(r.blob.size / 1048576).toFixed(1)}MB，超過設定的附件上限 ${maxAttachmentMB}MB（可在設定調整或開啟壓縮）`,
+        );
       }
       files.push({ blob: r.blob, name: r.name, type: r.blob.type, size: r.blob.size });
     }
@@ -530,8 +536,11 @@ function openSettings() {
   $('#sTitleTpl').value = d.titleTemplate;
   $('#sDescTpl').value = d.descTemplate;
   $('#sPosition').value = d.position;
+  $('#sCompress').checked = !!d.compressImages;
   $('#sMaxEdge').value = d.imageMaxEdge;
   $('#sQuality').value = d.imageQuality;
+  $('#sMaxMB').value = d.maxAttachmentMB;
+  $('#compressOpts').hidden = !d.compressImages;
   setAuthStatus('');
   setBoardStatus(state.boardMeta?.boardId === d.boardId && d.boardId ? metaSummary(state.boardMeta) : '');
   renderBoardSelect();
@@ -557,8 +566,10 @@ function readDraftInputs() {
   d.titleTemplate = $('#sTitleTpl').value;
   d.descTemplate = $('#sDescTpl').value;
   d.position = $('#sPosition').value;
+  d.compressImages = $('#sCompress').checked;
   d.imageMaxEdge = $('#sMaxEdge').value;
   d.imageQuality = $('#sQuality').value;
+  d.maxAttachmentMB = $('#sMaxMB').value;
   d.amountFieldId = $('#sAmountField').value;
   d.defaultCategoryId = $('#sDefaultCat').value;
   return d;
