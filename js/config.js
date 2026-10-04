@@ -8,6 +8,11 @@ export const DEFAULT_API_KEY = '93e60036aef0dd70b0f973164b41815d';
 
 // 第一次載入看板清單時，優先自動選到名稱含這個字的看板。
 export const BOARD_NAME_HINT = '債務';
+// 自動建分類時：預設分類優先用名稱含這個字的清單，並自動掛上這個標籤。
+export const DEFAULT_LIST_HINT = '爸爸債務';
+export const DEFAULT_LABEL_HINT = 'DF債權';
+// 自動建分類時跳過的清單（已結帳 / 封存 / 總結）。
+export const SKIP_LIST_PATTERN = /paid|archiv|done|summary|結[帳賬]/i;
 
 export const SYNC_TAG = 'trello-debt-sync';
 export const LOCK_NAME = 'trello-debt-queue';
@@ -20,8 +25,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
   // 分類：{ id, name, listId, labelIds: [], keywords: [] }
   categories: [],
   defaultCategoryId: '',
-  titleTemplate: '{title} ${amount}',
-  descTemplate: '金額：{amount}\n{content}',
+  // 跟使用者既有習慣一致：標題只放品項，說明第一行是純數字金額
+  titleTemplate: '{title}',
+  descTemplate: '{rawAmount}\n\n{content}',
   // 金額要寫入的 Trello 自訂欄位（number 型），空字串 = 不寫入
   amountFieldId: '',
   position: 'top',

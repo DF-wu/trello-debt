@@ -1,6 +1,15 @@
 // 頁面邏輯：記帳表單、佇列顯示、設定頁。資料存取都走 db.js，Trello 流程走 queue.js。
 
-import { APP_NAME, DEFAULT_SETTINGS, BOARD_NAME_HINT, SYNC_TAG, LOCK_NAME } from './config.js';
+import {
+  APP_NAME,
+  DEFAULT_SETTINGS,
+  BOARD_NAME_HINT,
+  DEFAULT_LIST_HINT,
+  DEFAULT_LABEL_HINT,
+  SKIP_LIST_PATTERN,
+  SYNC_TAG,
+  LOCK_NAME,
+} from './config.js';
 import { kv, IdbQueueStore, inbox, idbAvailable } from './db.js';
 import { TrelloApi, authorizeUrl } from './trello.js';
 import { createEntry, processQueue, runExclusive, STATUS, MemoryQueueStore, makeId } from './queue.js';
@@ -716,12 +725,21 @@ function catsFromLists() {
   const d = state.draft;
   const lists = state.boardMeta?.lists || [];
   if (!lists.length) return toast('請先選擇看板', true);
+  // 已結帳 / 封存的清單不建分類（這種看板常常有幾十個舊清單）；全部都被跳過時才退回建全部。
+  let candidates = lists.filter((l) => !SKIP_LIST_PATTERN.test(l.name));
+  if (!candidates.length) candidates = lists;
+  const labelHit = (state.boardMeta?.labels || []).find((l) => l.name === DEFAULT_LABEL_HINT);
   let added = 0;
-  for (const l of lists) {
+  let hinted = null;
+  for (const l of candidates) {
     if (d.categories.some((c) => c.listId === l.id)) continue;
-    d.categories.push({ id: makeId(), name: l.name, listId: l.id, labelIds: [], keywords: [] });
+    const isHint = l.name.includes(DEFAULT_LIST_HINT);
+    const cat = { id: makeId(), name: l.name, listId: l.id, labelIds: isHint && labelHit ? [labelHit.id] : [], keywords: [] };
+    d.categories.push(cat);
+    if (isHint && !hinted) hinted = cat;
     added += 1;
   }
+  if (hinted) d.defaultCategoryId = hinted.id;
   if (!d.categories.some((c) => c.id === d.defaultCategoryId)) d.defaultCategoryId = d.categories[0]?.id || '';
   renderCatEditor();
   renderDefaultCatSelect();
